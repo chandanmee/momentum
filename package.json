@@ -1,0 +1,57 @@
+{
+  "name": "momentum",
+  "version": "1.0.0",
+  "description": "Corporate-grade employee time and attendance management system",
+  "main": "index.js",
+  "scripts": {
+    "install:all": "npm install && npm run install:frontend && npm run install:backend",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm start",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && npm test",
+    "db:setup": "cd backend && npm run db:migrate",
+    "db:seed": "cd backend && npm run db:seed",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && npm run lint",
+    "start": "npm run start:backend",
+    "start:backend": "cd backend && npm start"
+  },
+  "keywords": [
+    "time-tracking",
+    "attendance",
+    "geofencing",
+    "employee-management",
+    "corporate",
+    "pwa",
+    "react",
+    "nodejs",
+    "postgresql"
+  ],
+  "author": "Momentum Development Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "eslint": "^8.45.0",
+    "prettier": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/momentum.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/momentum/issues"
+  },
+  "homepage": "https://github.com/your-org/momentum#readme"
+}
