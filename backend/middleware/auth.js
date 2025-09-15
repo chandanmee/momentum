@@ -254,7 +254,7 @@ const validateGeofenceAccess = catchAsync(async (req, res, next) => {
 // Rate limiting for authentication endpoints
 const authRateLimit = require('express-rate-limit')({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // limit each IP to 5 requests per windowMs
+  max: 50, // limit each IP to 50 requests per windowMs
   message: {
     error: 'Too many authentication attempts, please try again later.',
   },

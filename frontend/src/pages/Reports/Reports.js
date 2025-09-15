@@ -1,600 +1,381 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Box,
-  Typography,
-  Paper,
   Grid,
+  Card,
+  CardContent,
+  Typography,
   Button,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
+  MenuItem,
+  Chip,
+  IconButton,
+  Divider,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  Tabs,
-  Tab,
-  IconButton,
-  Tooltip,
-  Alert,
-  CircularProgress
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  FilterList as FilterIcon,
-  Assessment as ReportIcon,
-  TrendingUp as TrendingUpIcon,
-  Schedule as ScheduleIcon,
-  Person as PersonIcon,
-  CalendarToday as CalendarIcon,
-  AccessTime as TimeIcon,
-  BarChart as ChartIcon,
-  PictureAsPdf as PdfIcon,
-  TableChart as CsvIcon,
-  Print as PrintIcon
+  Download,
+  FilterList,
+  Refresh,
+  DateRange,
+  Assessment,
+  TrendingUp,
+  AccessTime,
 } from '@mui/icons-material';
-import { 
-  format, 
-  startOfWeek, 
-  endOfWeek, 
-  startOfMonth, 
-  endOfMonth,
-  subDays,
-  subWeeks,
-  subMonths
-} from 'date-fns';
-import { useDispatch, useSelector } from 'react-redux';
-import { getAttendanceReport, getDailySummaryReport, generateCustomReport, exportAttendanceReport, exportOvertimeReport, exportCustomReport } from '../../store/slices/reportSlice';
-import { showNotification } from '../../store/slices/uiSlice';
-import StatusCard from '../../components/Dashboard/StatusCard';
-import ReportsChart from '../../components/Reports/ReportsChart';
-import EmployeeReportTable from '../../components/Reports/EmployeeReportTable';
-import DepartmentSummary from '../../components/Reports/DepartmentSummary';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { formatDate, calculateTotalHours, calculateDuration } from '../../utils/helpers';
 
 const Reports = () => {
   const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const { punches } = useSelector((state) => state.punch);
   
-  const { 
-    reports, 
-    summary, 
-    loading, 
-    error 
-  } = useSelector(state => state.reports);
-  
-  const { user } = useSelector(state => state.auth);
-  
-  const [activeTab, setActiveTab] = useState(0);
-  const [dateRange, setDateRange] = useState('thisMonth');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [selectedEmployee, setSelectedEmployee] = useState('all');
-  const [reportType, setReportType] = useState('summary');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [exportLoading, setExportLoading] = useState(false);
+  // Filter states
+  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 30)));
+  const [endDate, setEndDate] = useState(new Date());
+  const [reportType, setReportType] = useState('daily');
+  const [department, setDepartment] = useState('all');
+  const [employee, setEmployee] = useState('all');
 
-  // Date range options
-  const dateRangeOptions = [
-    { value: 'today', label: 'Today' },
-    { value: 'yesterday', label: 'Yesterday' },
-    { value: 'thisWeek', label: 'This Week' },
-    { value: 'lastWeek', label: 'Last Week' },
-    { value: 'thisMonth', label: 'This Month' },
-    { value: 'lastMonth', label: 'Last Month' },
-    { value: 'last30Days', label: 'Last 30 Days' },
-    { value: 'last90Days', label: 'Last 90 Days' },
-    { value: 'custom', label: 'Custom Range' }
-  ];
+  // Filtered and processed data
+  const filteredData = useMemo(() => {
+    return punches.filter(punch => {
+      const punchDate = new Date(punch.timestamp);
+      return punchDate >= startDate && punchDate <= endDate;
+    });
+  }, [punches, startDate, endDate]);
 
-  // Report type options
-  const reportTypeOptions = [
-    { value: 'summary', label: 'Summary Report' },
-    { value: 'detailed', label: 'Detailed Report' },
-    { value: 'attendance', label: 'Attendance Report' },
-    { value: 'overtime', label: 'Overtime Report' },
-    { value: 'department', label: 'Department Report' }
-  ];
-
-  // Tab options
-  const tabOptions = [
-    { label: 'Overview', value: 'overview' },
-    { label: 'Employee Reports', value: 'employees' },
-    { label: 'Department Analysis', value: 'departments' },
-    { label: 'Time Trends', value: 'trends' }
-  ];
-
-  // Calculate date range
-  const getDateRange = useCallback(() => {
-    const now = new Date();
+  // Summary statistics
+  const summaryStats = useMemo(() => {
+    const totalHours = calculateTotalHours(filteredData);
+    const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    const avgHoursPerDay = filteredData.length > 0 ? 
+      (parseFloat(totalHours.replace(':', '.')) / totalDays).toFixed(2) : '0.00';
     
-    switch (dateRange) {
-      case 'today':
-        return { start: now, end: now };
-      case 'yesterday':
-        const yesterday = subDays(now, 1);
-        return { start: yesterday, end: yesterday };
-      case 'thisWeek':
-        return { start: startOfWeek(now), end: endOfWeek(now) };
-      case 'lastWeek':
-        const lastWeekStart = startOfWeek(subWeeks(now, 1));
-        return { start: lastWeekStart, end: endOfWeek(lastWeekStart) };
-      case 'thisMonth':
-        return { start: startOfMonth(now), end: endOfMonth(now) };
-      case 'lastMonth':
-        const lastMonthStart = startOfMonth(subMonths(now, 1));
-        return { start: lastMonthStart, end: endOfMonth(lastMonthStart) };
-      case 'last30Days':
-        return { start: subDays(now, 30), end: now };
-      case 'last90Days':
-        return { start: subDays(now, 90), end: now };
-      case 'custom':
-        return {
-          start: customStartDate ? new Date(customStartDate) : subDays(now, 30),
-          end: customEndDate ? new Date(customEndDate) : now
-        };
-      default:
-        return { start: startOfMonth(now), end: endOfMonth(now) };
-    }
-  }, [dateRange, customStartDate, customEndDate]);
-
-  // Fetch reports data
-  const fetchReportsData = useCallback(async () => {
-    const { start, end } = getDateRange();
-    
-    const params = {
-      startDate: format(start, 'yyyy-MM-dd'),
-      endDate: format(end, 'yyyy-MM-dd'),
-      department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
-      employee: selectedEmployee !== 'all' ? selectedEmployee : undefined
-    };
-
-    try {
-      // Use appropriate get function based on report type
-      let fetchAction;
-      switch (reportType) {
-        case 'attendance':
-          fetchAction = getAttendanceReport(params);
-          break;
-        case 'summary':
-        case 'detailed':
-          fetchAction = getDailySummaryReport(params);
-          break;
-        case 'overtime':
-         case 'department':
-         default:
-           fetchAction = generateCustomReport({ ...params, reportType });
-           break;
-      }
-      
-      await dispatch(fetchAction).unwrap();
-    } catch (error) {
-      dispatch(showNotification({
-        message: error.message || 'Failed to fetch reports',
-        severity: 'error'
-      }));
-    }
-  }, [selectedDepartment, selectedEmployee, reportType, dispatch, getDateRange]);
-
-  // Handle export
-  const handleExport = async (format) => {
-    setExportLoading(true);
-    
-    try {
-      const { start, end } = getDateRange();
-      
-      const params = {
-        startDate: format(start, 'yyyy-MM-dd'),
-        endDate: format(end, 'yyyy-MM-dd'),
-        department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
-        employee: selectedEmployee !== 'all' ? selectedEmployee : undefined,
-        format
-      };
-
-      // Use appropriate export function based on report type
-      let exportAction;
-      switch (reportType) {
-        case 'attendance':
-          exportAction = exportAttendanceReport(params);
-          break;
-        case 'overtime':
-          exportAction = exportOvertimeReport(params);
-          break;
-        case 'summary':
-        case 'detailed':
-        case 'department':
-        default:
-          exportAction = exportCustomReport({ ...params, reportType });
-          break;
-      }
-
-      await dispatch(exportAction).unwrap();
-      
-      dispatch(showNotification({
-        message: `Report exported successfully as ${format.toUpperCase()}`,
-        severity: 'success'
-      }));
-    } catch (error) {
-      dispatch(showNotification({
-        message: error.message || 'Failed to export report',
-        severity: 'error'
-      }));
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
-  // Handle refresh
-  const handleRefresh = () => {
-    fetchReportsData();
-  };
-
-  // Handle tab change
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  // Handle page change
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  // Handle rows per page change
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Format duration
-  const formatDuration = (minutes) => {
-    if (!minutes || minutes < 0) return '0h 0m';
-    
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  // Calculate summary statistics
-  const calculateSummaryStats = () => {
-    if (!summary) {
-      return {
-        totalHours: 0,
-        totalEmployees: 0,
-        avgHoursPerEmployee: 0,
-        overtimeHours: 0,
-        attendanceRate: 0,
-        productivityScore: 0
-      };
-    }
-
     return {
-      totalHours: summary.totalWorkHours || 0,
-      totalEmployees: summary.totalEmployees || 0,
-      avgHoursPerEmployee: summary.avgHoursPerEmployee || 0,
-      overtimeHours: summary.overtimeHours || 0,
-      attendanceRate: summary.attendanceRate || 0,
-      productivityScore: summary.productivityScore || 85 // Mock data
+      totalHours,
+      totalDays,
+      avgHoursPerDay,
+      totalPunches: filteredData.length,
     };
-  };
+  }, [filteredData, startDate, endDate]);
 
-  const stats = calculateSummaryStats();
+  // Group data by report type
+  const reportData = useMemo(() => {
+    const grouped = {};
+    
+    filteredData.forEach(punch => {
+      const date = new Date(punch.timestamp);
+      let key;
+      
+      switch (reportType) {
+        case 'daily':
+          key = date.toDateString();
+          break;
+        case 'weekly':
+          const weekStart = new Date(date.setDate(date.getDate() - date.getDay()));
+          key = `Week of ${weekStart.toDateString()}`;
+          break;
+        case 'monthly':
+          key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          break;
+        default:
+          key = date.toDateString();
+      }
+      
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(punch);
+    });
+    
+    return Object.entries(grouped).map(([period, punches]) => ({
+      period,
+      punches,
+      totalHours: calculateTotalHours(punches),
+      punchCount: punches.length,
+    }));
+  }, [filteredData, reportType]);
 
-  // Initial data fetch
-  useEffect(() => {
-    fetchReportsData();
-  }, [fetchReportsData]);
+  // Handle export functionality
+  const handleExport = useCallback((format) => {
+    console.log(`Exporting report in ${format} format`);
+    // This would implement actual export functionality
+  }, []);
+
+  // Handle filter refresh
+  const handleRefresh = useCallback(() => {
+    // This would refresh the data from the server
+    console.log('Refreshing report data');
+  }, []);
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ReportIcon />
-          Reports & Analytics
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Comprehensive time tracking reports and workforce analytics
-        </Typography>
-      </Box>
-
-      {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <FilterIcon />
-          Report Filters
-        </Typography>
-        
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Date Range</InputLabel>
-              <Select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                label="Date Range"
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Box sx={{ flexGrow: 1, p: 3 }}>
+        {/* Header */}
+        <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Typography variant="h4" component="h1">
+              Reports & Analytics
+            </Typography>
+            <Box display="flex" gap={1}>
+              <Button
+                variant="outlined"
+                startIcon={<Download />}
+                onClick={() => handleExport('pdf')}
               >
-                {dateRangeOptions.map(option => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          {dateRange === 'custom' && (
-            <>
-              <Grid item xs={12} sm={6} md={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Start Date"
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={6} md={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="End Date"
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-            </>
-          )}
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Report Type</InputLabel>
-              <Select
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value)}
-                label="Report Type"
+                Export PDF
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Download />}
+                onClick={() => handleExport('excel')}
               >
-                {reportTypeOptions.map(option => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          {user?.role === 'admin' && (
-            <>
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Department</InputLabel>
-                  <Select
-                    value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
-                    label="Department"
-                  >
-                    <MenuItem value="all">All Departments</MenuItem>
-                    <MenuItem value="engineering">Engineering</MenuItem>
-                    <MenuItem value="sales">Sales</MenuItem>
-                    <MenuItem value="marketing">Marketing</MenuItem>
-                    <MenuItem value="hr">Human Resources</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Employee</InputLabel>
-                  <Select
-                    value={selectedEmployee}
-                    onChange={(e) => setSelectedEmployee(e.target.value)}
-                    label="Employee"
-                  >
-                    <MenuItem value="all">All Employees</MenuItem>
-                    {/* Add employee options dynamically */}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </>
-          )}
-          
-          <Grid item xs={12} sm={6} md={1}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Tooltip title="Refresh Data">
-                <IconButton onClick={handleRefresh} disabled={loading}>
-                  <RefreshIcon />
-                </IconButton>
-              </Tooltip>
+                Export Excel
+              </Button>
+              <IconButton onClick={handleRefresh}>
+                <Refresh />
+              </IconButton>
             </Box>
+          </Box>
+          
+          {/* Filters */}
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={2}>
+              <DatePicker
+                label="Start Date"
+                value={startDate}
+                onChange={setStartDate}
+                renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <DatePicker
+                label="End Date"
+                value={endDate}
+                onChange={setEndDate}
+                renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Report Type</InputLabel>
+                <Select
+                  value={reportType}
+                  label="Report Type"
+                  onChange={(e) => setReportType(e.target.value)}
+                >
+                  <MenuItem value="daily">Daily</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                  <MenuItem value="monthly">Monthly</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Department</InputLabel>
+                <Select
+                  value={department}
+                  label="Department"
+                  onChange={(e) => setDepartment(e.target.value)}
+                >
+                  <MenuItem value="all">All Departments</MenuItem>
+                  <MenuItem value="engineering">Engineering</MenuItem>
+                  <MenuItem value="sales">Sales</MenuItem>
+                  <MenuItem value="marketing">Marketing</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Employee</InputLabel>
+                <Select
+                  value={employee}
+                  label="Employee"
+                  onChange={(e) => setEmployee(e.target.value)}
+                >
+                  <MenuItem value="all">All Employees</MenuItem>
+                  <MenuItem value="current">Current User</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <Button
+                variant="contained"
+                startIcon={<FilterList />}
+                fullWidth
+                onClick={() => console.log('Apply filters')}
+              >
+                Apply Filters
+              </Button>
+            </Grid>
           </Grid>
-        </Grid>
-        
-        {/* Export Buttons */}
-        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<CsvIcon />}
-            onClick={() => handleExport('csv')}
-            disabled={exportLoading}
-          >
-            Export CSV
-          </Button>
-          
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<PdfIcon />}
-            onClick={() => handleExport('pdf')}
-            disabled={exportLoading}
-          >
-            Export PDF
-          </Button>
-          
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<PrintIcon />}
-            onClick={() => window.print()}
-          >
-            Print
-          </Button>
-        </Box>
-      </Paper>
+        </Paper>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
-        </Box>
-      )}
-
-      {/* Summary Cards */}
-      {!loading && (
+        {/* Summary Cards */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={2}>
-            <StatusCard
-              title="Total Hours"
-              value={formatDuration(stats.totalHours * 60)}
-              icon={<TimeIcon />}
-              color="primary"
-              trend={stats.totalHours > 0 ? { value: 12, direction: 'up' } : null}
-            />
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="body2">
+                      Total Hours
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {summaryStats.totalHours}
+                    </Typography>
+                  </Box>
+                  <AccessTime color="primary" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={2}>
-            <StatusCard
-              title="Employees"
-              value={stats.totalEmployees}
-              icon={<PersonIcon />}
-              color="info"
-            />
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="body2">
+                      Total Days
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {summaryStats.totalDays}
+                    </Typography>
+                  </Box>
+                  <DateRange color="info" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={2}>
-            <StatusCard
-              title="Avg Hours/Employee"
-              value={formatDuration(stats.avgHoursPerEmployee * 60)}
-              icon={<ScheduleIcon />}
-              color="success"
-            />
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="body2">
+                      Avg Hours/Day
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {summaryStats.avgHoursPerDay}
+                    </Typography>
+                  </Box>
+                  <TrendingUp color="success" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={2}>
-            <StatusCard
-              title="Overtime Hours"
-              value={formatDuration(stats.overtimeHours * 60)}
-              icon={<TrendingUpIcon />}
-              color="warning"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <StatusCard
-              title="Attendance Rate"
-              value={`${stats.attendanceRate.toFixed(1)}%`}
-              icon={<CalendarIcon />}
-              color="success"
-              progress={stats.attendanceRate}
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <StatusCard
-              title="Productivity"
-              value={`${stats.productivityScore}%`}
-              icon={<ChartIcon />}
-              color="primary"
-              progress={stats.productivityScore}
-            />
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="body2">
+                      Total Punches
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {summaryStats.totalPunches}
+                    </Typography>
+                  </Box>
+                  <Assessment color="warning" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
           </Grid>
         </Grid>
-      )}
 
-      {/* Tabs */}
-      <Paper sx={{ mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          {tabOptions.map((tab, index) => (
-            <Tab key={tab.value} label={tab.label} />
-          ))}
-        </Tabs>
-        
-        <Box sx={{ p: 3 }}>
-          {/* Overview Tab */}
-          {activeTab === 0 && (
-            <Grid container spacing={3}>
-              <Grid item xs={12} lg={8}>
-                <ReportsChart 
-                  data={reports} 
-                  type="overview"
-                  dateRange={getDateRange()}
-                />
-              </Grid>
-              
-              <Grid item xs={12} lg={4}>
-                <DepartmentSummary 
-                  data={summary?.departmentBreakdown || []}
-                  loading={loading}
-                />
-              </Grid>
-            </Grid>
-          )}
-          
-          {/* Employee Reports Tab */}
-          {activeTab === 1 && (
-            <EmployeeReportTable
-              data={reports?.employees || []}
-              loading={loading}
-              page={page}
-              rowsPerPage={rowsPerPage}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          )}
-          
-          {/* Department Analysis Tab */}
-          {activeTab === 2 && (
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <ReportsChart 
-                  data={reports} 
-                  type="department"
-                  dateRange={getDateRange()}
-                />
-              </Grid>
-            </Grid>
-          )}
-          
-          {/* Time Trends Tab */}
-          {activeTab === 3 && (
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <ReportsChart 
-                  data={reports} 
-                  type="trends"
-                  dateRange={getDateRange()}
-                />
-              </Grid>
-            </Grid>
-          )}
-        </Box>
-      </Paper>
-    </Box>
+        {/* Report Data Table */}
+        <Card elevation={2}>
+          <CardContent>
+            <Box display="flex" alignItems="center" justifyContent="between" mb={2}>
+              <Typography variant="h6" component="div">
+                {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report Data
+              </Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Period</TableCell>
+                    <TableCell align="center">Total Hours</TableCell>
+                    <TableCell align="center">Punch Count</TableCell>
+                    <TableCell align="center">Status</TableCell>
+                    <TableCell align="center">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {reportData.length > 0 ? (
+                    reportData.map((row, index) => (
+                      <TableRow key={index} hover>
+                        <TableCell component="th" scope="row">
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.period}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2">
+                            {row.totalHours}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={row.punchCount}
+                            size="small"
+                            color={row.punchCount > 0 ? 'primary' : 'default'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={parseFloat(row.totalHours.replace(':', '.')) >= 8 ? 'Complete' : 'Incomplete'}
+                            size="small"
+                            color={parseFloat(row.totalHours.replace(':', '.')) >= 8 ? 'success' : 'warning'}
+                            variant="filled"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => console.log('View details for', row.period)}
+                          >
+                            <Assessment />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography color="textSecondary" sx={{ py: 4 }}>
+                          No data available for the selected period
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Box>
+    </LocalizationProvider>
   );
 };
 
