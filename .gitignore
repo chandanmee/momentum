@@ -6,6 +6,9 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 
+# Documentation (contains sensitive info)
+docs/
+
 # Environment variables
 .env
 .env.local
