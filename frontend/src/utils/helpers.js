@@ -105,6 +105,15 @@ export const capitalize = (str) => {
 };
 
 export const getInitials = (firstName, lastName) => {
+  // Handle single name string (e.g., "John Doe")
+  if (typeof firstName === 'string' && !lastName) {
+    const nameParts = firstName.trim().split(' ');
+    const first = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() : '';
+    const last = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() : '';
+    return `${first}${last}`;
+  }
+  
+  // Handle separate firstName and lastName
   const first = firstName ? firstName.charAt(0).toUpperCase() : '';
   const last = lastName ? lastName.charAt(0).toUpperCase() : '';
   return `${first}${last}`;
@@ -139,12 +148,37 @@ export const removeLocalStorage = (key) => {
 
 // Error handling utilities
 export const getErrorMessage = (error) => {
-  if (error.response?.data?.message) {
-    return error.response.data.message;
+  // Handle API error responses with detailed structure
+  if (error.response?.data) {
+    const errorData = error.response.data;
+    
+    // Check for message in the error data
+    if (errorData.message) {
+      return errorData.message;
+    }
+    
+    // Check for error object with message
+    if (errorData.error?.message) {
+      return errorData.error.message;
+    }
+    
+    // Check for errors array (validation errors)
+    if (errorData.errors && Array.isArray(errorData.errors)) {
+      return errorData.errors.map(err => err.message || err).join(', ');
+    }
+    
+    // Fallback to status text
+    if (errorData.status === 'fail' || errorData.status === 'error') {
+      return errorData.message || 'Request failed';
+    }
   }
+  
+  // Handle network errors or other error types
   if (error.message) {
     return error.message;
   }
+  
+  // Default fallback
   return 'An unexpected error occurred';
 };
 

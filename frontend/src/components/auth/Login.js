@@ -19,7 +19,7 @@ import {
   Email,
   Lock,
 } from '@mui/icons-material';
-import { login, clearError } from '../../store/slices/authslice';
+import { login, clearError } from '../../store/slices/authSlice';
 import { validateEmail } from '../../utils/helpers';
 
 const Login = () => {

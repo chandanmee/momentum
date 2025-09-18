@@ -67,7 +67,8 @@ app.use(compression());
 const corsOptions = {
   origin: [
     process.env.CORS_ORIGIN || 'http://localhost:3000',
-    'http://localhost:3001'
+    'http://localhost:3001',
+    'http://192.168.29.9:3001',
   ],
   credentials: true,
   optionsSuccessStatus: 200,

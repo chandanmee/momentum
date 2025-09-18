@@ -21,7 +21,7 @@ import {
   Lock,
   Person,
 } from '@mui/icons-material';
-import { register, clearError } from '../../store/slices/authslice';
+import { register, clearError } from '../../store/slices/authSlice';
 import { validateEmail, validatePassword } from '../../utils/helpers';
 
 const Register = () => {

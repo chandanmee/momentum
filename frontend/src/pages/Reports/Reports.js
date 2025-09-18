@@ -2,45 +2,48 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Box,
-  Grid,
+  Container,
+  Typography,
   Card,
   CardContent,
-  Typography,
+  Grid,
+  TextField,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
-  MenuItem,
+  Paper,
   Chip,
+  CircularProgress,
+  Alert,
   IconButton,
   Divider,
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
 } from '@mui/material';
 import {
-  Download,
-  FilterList,
-  Refresh,
   DateRange,
+  GetApp as Download,
   Assessment,
   TrendingUp,
+  Refresh,
+  FilterList,
   AccessTime,
 } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { formatDate, calculateTotalHours, calculateDuration } from '../../utils/helpers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { formatDate, calculateDuration, calculateTotalHours } from '../../utils/helpers';
 
 const Reports = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { punches } = useSelector((state) => state.punch);
+  const { todaysPunches: punches } = useSelector((state) => state.punch);
   
   // Filter states
   const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 30)));

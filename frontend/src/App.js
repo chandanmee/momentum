@@ -2,77 +2,61 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, CircularProgress, Box } from '@mui/material';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import CssBaseline from '@mui/material/CssBaseline';
 
-// Import components
+// Import components and pages
+import Layout from './components/layout/Layout';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import Dashboard from './pages/Dashboard/dashboard';
 import PunchClock from './pages/Punch/PunchClock';
 import Reports from './pages/Reports/reports';
+import Settings from './pages/Settings/Settings';
+import Profile from './pages/Profile/Profile';
+import Toast from './components/common/Toast';
 
-// Import Redux actions
-import { checkAuthStatus } from './store/slices/authslice';
+// Import auth actions
+import { checkAuthStatus } from './store/slices/authSlice';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useSelector((state) => state.auth);
-
+  
   if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}
-      >
-        <CircularProgress size={60} />
-      </Box>
-    );
+    return <div>Loading...</div>; // You can replace this with a proper loading component
   }
-
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  
+  return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 // Public Route Component (redirect to dashboard if authenticated)
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useSelector((state) => state.auth);
-
+  
   if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}
-      >
-        <CircularProgress size={60} />
-      </Box>
-    );
+    return <div>Loading...</div>; // You can replace this with a proper loading component
   }
-
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+  
+  return !isAuthenticated ? children : <Navigate to="/dashboard" />;
 };
 
 function App() {
   const dispatch = useDispatch();
-  const { theme } = useSelector((state) => state.ui);
+  const { isAuthenticated, isLoading, token } = useSelector((state) => state.auth);
 
-  // Check authentication status on app load
   useEffect(() => {
-    dispatch(checkAuthStatus());
-  }, [dispatch]);
+    // Check if we have a token (either from localStorage or rehydrated state)
+    const storedToken = localStorage.getItem('token');
+    
+    if (token || storedToken) {
+      // If we have a token, verify it with the server
+      dispatch(checkAuthStatus());
+    }
+  }, [dispatch, token]);
 
-  // Create Material-UI theme
-  const muiTheme = createTheme({
+  // Create theme
+  const theme = createTheme({
     palette: {
-      mode: theme,
       primary: {
         main: '#1976d2',
         light: '#42a5f5',
@@ -80,12 +64,10 @@ function App() {
       },
       secondary: {
         main: '#dc004e',
-        light: '#ff5983',
-        dark: '#9a0036',
       },
       background: {
-        default: theme === 'dark' ? '#121212' : '#f5f5f5',
-        paper: theme === 'dark' ? '#1e1e1e' : '#ffffff',
+        default: '#f5f5f5',
+        paper: '#ffffff',
       },
     },
     typography: {
@@ -110,17 +92,7 @@ function App() {
         styleOverrides: {
           root: {
             borderRadius: 12,
-            boxShadow: theme === 'dark' 
-              ? '0 4px 6px rgba(0, 0, 0, 0.3)'
-              : '0 2px 8px rgba(0, 0, 0, 0.1)',
-          },
-        },
-      },
-      MuiAppBar: {
-        styleOverrides: {
-          root: {
-            boxShadow: 'none',
-            borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#e0e0e0'}`,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           },
         },
       },
@@ -128,78 +100,50 @@ function App() {
   });
 
   return (
-    <ThemeProvider theme={muiTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <div className="App">
-          <Routes>
-            {/* Public Routes */}
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <PublicRoute>
-                  <Register />
-                </PublicRoute>
-              }
-            />
-
-            {/* Protected Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/punch"
-              element={
-                <ProtectedRoute>
-                  <PunchClock />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports"
-              element={
-                <ProtectedRoute>
-                  <Reports />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Default Routes */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-
-          {/* Toast Notifications */}
-          <ToastContainer
-            position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme={theme}
-            toastStyle={{
-              backgroundColor: theme === 'dark' ? '#333' : '#fff',
-              color: theme === 'dark' ? '#fff' : '#000',
-            }}
+        <Routes>
+          {/* Public Routes */}
+          <Route 
+            path="/login" 
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            } 
           />
-        </div>
+          <Route 
+            path="/register" 
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            } 
+          />
+          
+          {/* Protected Routes */}
+          <Route 
+            path="/*" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/punch-clock" element={<PunchClock />} />
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/" element={<Navigate to="/dashboard" />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+        </Routes>
+        
+        {/* Global Toast Notifications */}
+        <Toast />
       </Router>
     </ThemeProvider>
   );
